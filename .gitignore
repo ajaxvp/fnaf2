@@ -1,2 +1,6 @@
 fnaf2
 build
+resources
+*.DS_Store
+lib
+include/SDL3
