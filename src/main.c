@@ -3,132 +3,159 @@
 #include <stdbool.h>
 #include <time.h>
 
+#include "SDL3/SDL_events.h"
 #include "SDL3/SDL_init.h"
-#include "SDL3/SDL_log.h"
+#include "SDL3/SDL_render.h"
+#include "SDL3/SDL_scancode.h"
+#include "SDL3/SDL_ttf.h"
 #include "SDL3/SDL_video.h"
-#include "SDL3/SDL_image.h"
 
+#include "fnaf2.h"
+#include "frame.h"
 #include "log.h"
+#include "graphics.h"
 
-#define SCREEN_WIDTH_RATIO 4
-#define SCREEN_HEIGHT_RATIO 3
+static runtime_properties_t properties = {
+    .window_scale = 256
+};
 
-SDL_Window* gWindow = NULL;
+static SDL_Window* window = NULL;
+static SDL_Renderer* renderer = NULL;
 
-SDL_Surface* gScreenSurface = NULL;
+static bool KEYS[SDL_SCANCODE_COUNT];
 
-SDL_Surface* gHelloWorld = NULL;
-
-bool init(size_t window_multiplier)
+bool init(void)
 {
-    bool success = true;
-
-    if (SDL_Init(SDL_INIT_VIDEO) == false)
+    if (!SDL_Init(SDL_INIT_VIDEO))
     {
         errorf("failed to initialize SDL: %s\n", SDL_GetError());
-        success = false;
-    }
-    else
-    {
-        gWindow = SDL_CreateWindow("SDL3 Tutorial: Hello SDL3", SCREEN_WIDTH_RATIO * window_multiplier, SCREEN_HEIGHT_RATIO * window_multiplier, 0);
-        if (!gWindow)
-        {
-            errorf("could not create program window: %s\n", SDL_GetError());
-            success = false;
-        }
-        else
-            gScreenSurface = SDL_GetWindowSurface(gWindow);
+        return false;
     }
 
-    return success;
+    if (!TTF_Init())
+    {
+        errorf("failed to initialize SDL font library: %s\n", SDL_GetError());
+        return false;
+    }
+
+    SDL_CreateWindowAndRenderer("Five Nights at Freddy's 2",
+        SCREEN_WIDTH_RATIO * properties.window_scale,
+        SCREEN_HEIGHT_RATIO * properties.window_scale, 0, &window, &renderer);
+
+    if (!window || !renderer)
+    {
+        errorf("could not create program window: %s\n", SDL_GetError());
+        return false;
+    }
+
+    return true;
 }
 
-bool load_media(void)
+void cleanup(void)
 {
-    bool success = true;
+    unload_all_graphics();
+    unload_all_fonts();
 
-    char* imagePath = "resources/img/1.png";
-    gHelloWorld = IMG_Load(imagePath);
-    if (!gHelloWorld)
-    {
-        errorf("Unable to load image %s! SDL Error: %s\n", imagePath, SDL_GetError());
-        success = false;
-    }
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    window = NULL;
+    renderer = NULL;
 
-    return success;
-}
-
-void close(void)
-{
-    //Clean up surface
-    SDL_DestroySurface(gHelloWorld);
-    gHelloWorld = NULL;
-    
-    //Destroy window
-    SDL_DestroyWindow(gWindow);
-    gWindow = NULL;
-    gScreenSurface = NULL;
+    TTF_Quit();
 
     SDL_Quit();
 }
 
-
 int main(int argc, char** argv)
 {
-    //Final exit code
     int code = EXIT_SUCCESS;
 
-    //Initialize
-    if (init(256) == false )
-    {
-        SDL_Log( "Unable to initialize program!\n" );
-        code = EXIT_FAILURE;
-    }
-    else
-    {
-        //Load media
-        if (!load_media())
-        {
-            SDL_Log( "Unable to load media!\n" );
-            code = EXIT_FAILURE;
-        }
-        else
-        {
-            //The quit flag
-            bool quit = false;
+    if (!init())
+        return EXIT_FAILURE;
 
-            //The event data
-            SDL_Event e;
-            SDL_zero(e);
-            
-            //The main loop
-            while (!quit)
+    bool quit = false;
+
+    SDL_Event e;
+    SDL_zero(e);
+
+    game_state_t state = {0};
+
+    game_frame_t* frame = frame_title();
+
+    if (frame->init)
+        frame->init(&state);
+
+    while (!quit)
+    {
+        while (SDL_PollEvent(&e))
+        {
+            switch (e.type)
             {
-                //Get event data
-                while (SDL_PollEvent(&e))
-                {
-                    //If event is quit type
-                    if (e.type == SDL_EVENT_QUIT)
+                case SDL_EVENT_QUIT:
+                    quit = true;
+                    break;
+                case SDL_EVENT_KEY_DOWN:
+                    if (e.key.scancode >= SDL_SCANCODE_COUNT)
                     {
-                        //End the main loop
-                        quit = true;
+                        errorf("could not track key press event for key scancode %u\n", e.key.scancode);
+                        break;
                     }
-                }
-
-                //Fill the surface white
-                SDL_FillSurfaceRect(gScreenSurface, NULL, SDL_MapSurfaceRGB( gScreenSurface, 0xFF, 0xFF, 0xFF));
-            
-                //Render image on screen
-                SDL_BlitSurface(gHelloWorld, NULL, gScreenSurface, NULL);
-
-                //Update the surface
-                SDL_UpdateWindowSurface(gWindow);
-            } 
+                    KEYS[e.key.scancode] = true;
+                    break;
+                case SDL_EVENT_KEY_UP:
+                    if (e.key.scancode >= SDL_SCANCODE_COUNT)
+                    {
+                        errorf("could not track key release event for key scancode %u\n", e.key.scancode);
+                        break;
+                    }
+                    KEYS[e.key.scancode] = false;
+                    break;
+            }
         }
+
+        if (state.next_frame)
+        {
+            if (frame->deinit)
+                frame->deinit(&state);
+            frame = state.next_frame;
+            if (frame->init)
+                frame->init(&state);
+            state.next_frame = NULL;
+        }
+
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+
+        if (frame->update)
+            frame->update(&state);
+
+        SDL_RenderPresent(renderer);
     }
 
-    //Clean up
-    close();
+    if (frame->deinit)
+        frame->deinit(&state);
+
+    cleanup();
 
     return code;
+}
+
+SDL_Renderer* get_renderer(void)
+{
+    return renderer;
+}
+
+runtime_properties_t* get_runtime_properties(void)
+{
+    return &properties;
+}
+
+bool is_key_pressed(SDL_Scancode code)
+{
+    if (code >= SDL_SCANCODE_COUNT)
+    {
+        errorf("could not get status of key with key scancode %u\n", code);
+        return false;
+    }
+    return KEYS[code];
 }

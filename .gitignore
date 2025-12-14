@@ -4,3 +4,4 @@ resources
 *.DS_Store
 lib
 include/SDL3
+doc
