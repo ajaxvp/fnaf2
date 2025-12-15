@@ -1,4 +1,3 @@
-#include "SDL3/SDL_oldnames.h"
 #include "SDL3/SDL_rect.h"
 #include "SDL3/SDL_render.h"
 #include "fnaf2.h"
@@ -32,11 +31,11 @@ static game_graphic_t CAMERA_FLIP_ANIMATION_FRAMES[] = {
 
 static int camera_finish(game_state_t* state)
 {
-    change_frame(state, frame_title(), NULL);
+    change_frame(state, frame_camera(), NULL);
     return 0;
 }
 
-static int init(game_state_t* state)
+static int init(game_state_t* state, void* message)
 {
     // texture initializations
     return 0;
@@ -73,7 +72,7 @@ static int update(game_state_t* state)
     };
 
     if (is_key_pressed(SDL_SCANCODE_LCTRL))
-        office = get_graphic(GG_OFFICE_FRONTLIGHT);
+        office = get_graphic(GG_OFFICE_FRONT_LIGHT);
 
     SDL_RenderTexture(r, office, NULL, &office_dim);
 
@@ -85,6 +84,9 @@ static int update(game_state_t* state)
         .h = desk->h
     };
     SDL_RenderTexture(r, desk, NULL, &desk_dim);
+
+    SDL_FRect mask_flipper_loc = {0};
+    render_texture(25, 700, get_graphic(GG_MASK_FLIPPER), &mask_flipper_loc);
 
     SDL_FRect camera_flipper_loc = {0};
     render_texture(512, 700, get_graphic(GG_CAMERA_FLIPPER), &camera_flipper_loc);
@@ -102,8 +104,8 @@ static int update(game_state_t* state)
         start_animation(state, &anim);
     }
 
-    if (mouse_in_frect(&move_left) && pos < 800 - 512) pos += 2;
-    if (mouse_in_frect(&move_right) && pos > -800 + 512) pos -= 2;
+    if (mouse_in_frect(&move_left) && pos < 800 - 512) pos += 1;
+    if (mouse_in_frect(&move_right) && pos > -800 + 512) pos -= 1;
 
     render_animation(state, ANIM_CAMERA_FLIP);
 

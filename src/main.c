@@ -68,6 +68,8 @@ void cleanup(void)
 
 int main(int argc, char** argv)
 {
+    srand(time(NULL));
+
     int code = EXIT_SUCCESS;
 
     if (!init())
@@ -83,7 +85,7 @@ int main(int argc, char** argv)
     game_frame_t* frame = frame_title();
 
     if (frame->init)
-        frame->init(&state);
+        frame->init(&state, NULL);
 
     while (!quit)
     {
@@ -119,7 +121,7 @@ int main(int argc, char** argv)
                 frame->deinit(&state);
             frame = state.next_frame;
             if (frame->init)
-                frame->init(&state);
+                frame->init(&state, state.message);
             state.next_frame = NULL;
         }
 

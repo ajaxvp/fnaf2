@@ -12,7 +12,8 @@ typedef enum game_frame_type
 {
     GF_UNKNOWN,
     GF_TITLE,
-    GF_OFFICE
+    GF_OFFICE,
+    GF_CAMERA
 } game_frame_type_t;
 
 typedef struct game_frame game_frame_t;
@@ -27,7 +28,7 @@ struct game_state
 struct game_frame
 {
     game_frame_type_t type;
-    int (*init)(game_state_t*);
+    int (*init)(game_state_t*, void* message);
     int (*update)(game_state_t*);
     int (*deinit)(game_state_t*);
 };
@@ -36,6 +37,7 @@ void change_frame(game_state_t* state, game_frame_t* frame, void* message);
 
 game_frame_t* frame_title(void);
 game_frame_t* frame_office(void);
+game_frame_t* frame_camera(void);
 
 bool mouse_in_frect(SDL_FRect* frect);
 

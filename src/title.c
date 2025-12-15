@@ -57,7 +57,7 @@ bool mouse_clicked(void)
     return SDL_GetMouseState(NULL, NULL) & SDL_BUTTON_LMASK;
 }
 
-static int init(game_state_t* state)
+static int init(game_state_t* state, void* message)
 {
     TEXTURES[T_FIVE] = create_text_texture("Five", F_OCR_A, FS_TITLE, &WHITE);
     TEXTURES[T_NIGHTS] = create_text_texture("Nights", F_OCR_A, FS_TITLE, &WHITE);
